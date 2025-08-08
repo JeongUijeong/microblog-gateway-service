@@ -1,41 +1,56 @@
 package com.uijeong.microblog.gateway.filter;
 
-import com.uijeong.microblog.gateway.util.JwtValidator;
-import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.http.HttpStatus;
+import com.uijeong.microblog.gateway.util.JwtProvider;
+import io.jsonwebtoken.Claims;
+import java.util.Collections;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
 
 /**
- * 요청에 포함된 JWT를 검증하는 인증 필터
+ * WebFlux 기반에서 webFilter를 통해 인증 정보를 Reactive SecurityContext에 주입하는 필터
  */
+@Slf4j
 @Component
-public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<Object> {
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter implements WebFilter {
 
-    private final JwtValidator jwtValidator;
-
-    public JwtAuthenticationFilter(JwtValidator jwtValidator) {
-        this.jwtValidator = jwtValidator;
-    }
+    private final JwtProvider jwtProvider;
 
     @Override
-    public GatewayFilter apply(Object config) {
-        return (exchange, chain) -> {
-            String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        String token = resolveToken(exchange);
+        if (token != null && jwtProvider.validateToken(token)) {
+            Claims claims = jwtProvider.parseClaims(token);
+            String username = claims.getSubject();
+            List<String> roles = claims.get("roles", List.class); // role: ["ROLE_USER"]
+            if (roles == null) roles = Collections.emptyList();
 
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                return exchange.getResponse().setComplete();
-            }
+            UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(username, null,
+                    jwtProvider.getAuthorities(roles));
 
-            String token = authHeader.substring(7);
+            return chain.filter(exchange)
+                .contextWrite(ReactiveSecurityContextHolder.withSecurityContext(
+                    Mono.just(new SecurityContextImpl(authentication))));
+        }
+        return chain.filter(exchange); // 토큰이 없거나 유효하지 않으면 그대로 통과
+    }
 
-            if (!jwtValidator.validateToken(token)) {
-                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                return exchange.getResponse().setComplete();
-            }
-
-            return chain.filter(exchange);
-        };
+    private String resolveToken(ServerWebExchange exchange) {
+        String bearer = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
     }
 }
