@@ -1,4 +1,4 @@
-package com.uijeong.microblog.gateway_service.config;
+package com.uijeong.microblog.gateway.config;
 
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;

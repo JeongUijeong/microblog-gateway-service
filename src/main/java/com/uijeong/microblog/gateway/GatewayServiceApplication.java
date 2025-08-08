@@ -1,4 +1,4 @@
-package com.uijeong.microblog.gateway_service;
+package com.uijeong.microblog.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

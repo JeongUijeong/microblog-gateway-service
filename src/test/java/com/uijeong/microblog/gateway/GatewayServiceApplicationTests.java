@@ -1,4 +1,4 @@
-package com.uijeong.microblog.gateway_service;
+package com.uijeong.microblog.gateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
