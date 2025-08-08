@@ -50,7 +50,7 @@ public class RouteLocatorConfig {
             .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
             .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/auth/**", "/member/signup", "/member/login")
+                .pathMatchers("/api/auth/**", "/api/members/signup")
                 .permitAll() // 비인증 경로 허용
                 .anyExchange().authenticated() // 나머지 요청은 인증 필요
             )
